@@ -24,11 +24,10 @@ enum value_type
 
 enum connection_state
 {
-	UNUSED,
-	NEW,
-	UP_TO_DATE,
-	MODIFIED,
-	ENDING
+	C_UNUSED = 0,
+	C_NEW = 1,
+	C_PAGE_CHANGED = 2,
+	C_CLOSING = 4
 };
 
 
@@ -57,8 +56,9 @@ struct page
 
 struct connection
 {
-	uint16_t page_idx;
+	uint16_t page_id;
 	enum connection_state state;
+	struct pbuf *send_queue;
 };
 
 struct ctrl_server
@@ -68,6 +68,7 @@ struct ctrl_server
 	uint8_t running;
 
 	struct connection connections[ MAX_CONNECTIONS ];
+	uint8_t currently_handled_connection;
 	void (*idle_callback)();
 };
 
@@ -85,8 +86,6 @@ uint16_t add_page(
 void register_idle_callback( void (*idle_callback)() );
 
 void change_page( uint16_t page_id );
-
-void update_values( void );
 
 err_t mainloop( void );
 

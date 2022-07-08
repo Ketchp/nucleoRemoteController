@@ -96,7 +96,6 @@ void page2_callback( uint16_t widget_id, w_val_t *_ )
 			strcpy( new_str + 6, *str );
 			mem_free( *str );
 			*str = new_str;
-			update_values();
 		}
 	}
 }
