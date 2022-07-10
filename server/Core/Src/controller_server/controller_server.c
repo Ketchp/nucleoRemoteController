@@ -6,6 +6,7 @@
  */
 
 #include "controller_server.h"
+#include "input_parser.h"
 
 #include <string.h>
 
@@ -24,12 +25,12 @@ static err_t sent_callback( void *arg, struct tcp_pcb *pcb, uint16_t len );
 
 static void err_callback( void *arg, err_t err );
 
-static err_t start_sending( struct tcp_pcb *pcb, struct connection *conn );
+static err_t start_sending( struct tcp_pcb *pcb, connection_t *conn );
 
 
 void server_init( void )
 {
-	server.currently_handled_connection = MAX_CONNECTIONS;
+	server.currently_handled_connection = NULL;
 }
 
 static inline uint16_t push_page( struct page *new_page )
@@ -37,7 +38,7 @@ static inline uint16_t push_page( struct page *new_page )
 	struct page **new_mem =
 			(struct page **)mem_malloc( ( server.page_count + 1 ) * sizeof( *new_mem ) );
 	if( !new_mem )
-		return MEM_ERROR;
+		return ERR_PAGE_ID;
 
 	memcpy( new_mem, server.pages, server.page_count * sizeof( *new_mem ) );
 	new_mem[ server.page_count ] = new_page;
@@ -57,14 +58,15 @@ uint16_t add_page(
 {
 	struct page *new_page = (struct page *)mem_malloc( sizeof( *new_page ) );
 	if( !new_page )
-		return MEM_ERROR;
+		return ERR_PAGE_ID;
 
 	uint16_t new_id = push_page( new_page );
-	if( new_id == MEM_ERROR )
+	if( new_id == ERR_PAGE_ID )
 		mem_free( new_page );
 	else
 	{
 		new_page->page_description = page_description;
+		new_page->page_desc_len = strlen( page_description );
 		new_page->page_content = page_content;
 		new_page->widget_count = widget_count;
 		new_page->update_callback = update_callback;
@@ -80,10 +82,10 @@ void register_idle_callback( void (*idle_callback)() )
 
 void change_page( uint16_t page_id )
 {
-	if( server.currently_handled_connection == MAX_CONNECTIONS )
+	if( server.currently_handled_connection == NULL )
 		return;
 
-	struct connection *conn = server.connections + server.currently_handled_connection;
+	connection_t *conn = server.currently_handled_connection;
 
 	conn->page_id = page_id;
 	conn->state |= C_PAGE_CHANGED;
@@ -160,14 +162,9 @@ static err_t new_conn_callback( void *arg, struct tcp_pcb *new_pcb, err_t err )
 
 	LWIP_UNUSED_ARG( arg );
 
-	uint8_t free_id;
+	connection_t *conn = (connection_t *)mem_malloc( sizeof( *conn ) );
 
-	for( free_id = 0; free_id < MAX_CONNECTIONS; ++free_id )
-		if( server.connections[free_id].state == C_UNUSED )
-			break;
-
-
-	if( free_id == MAX_CONNECTIONS )
+	if( !conn )
 	{
 		tcp_abort( new_pcb );
 		return ERR_ABRT;
@@ -175,11 +172,10 @@ static err_t new_conn_callback( void *arg, struct tcp_pcb *new_pcb, err_t err )
 
 	tcp_setprio( new_pcb, TCP_PRIO_MIN );
 
-	struct connection *conn = server.connections + free_id;
-
 	conn->page_id = 0;
 	conn->state = C_NEW;
-	conn->send_queue = NULL;
+	conn->response = NULL;
+	conn->response_len = 0;
 
 	tcp_arg( new_pcb, conn );
 
@@ -195,9 +191,15 @@ static err_t new_conn_callback( void *arg, struct tcp_pcb *new_pcb, err_t err )
 }
 
 
-static err_t recv_callback( void *arg, struct tcp_pcb *pcb, struct pbuf *msg_pbuf, err_t err )
+
+static err_t
+recv_callback(
+		void *arg,
+		struct tcp_pcb *pcb,
+		struct pbuf *msg_pbuf,
+		err_t err )
 {
-	struct connection *conn = (struct connection *)arg;
+	connection_t *conn = (connection_t *)arg;
 	if( !msg_pbuf )
 	{
 		tcp_arg( pcb, NULL );
@@ -205,6 +207,7 @@ static err_t recv_callback( void *arg, struct tcp_pcb *pcb, struct pbuf *msg_pbu
 		tcp_recv( pcb, NULL );
 		tcp_err( pcb, NULL );
 		conn->state = C_UNUSED;
+		mem_free( conn );
 		tcp_close( pcb );
 		return ERR_OK;
 	}
@@ -215,15 +218,28 @@ static err_t recv_callback( void *arg, struct tcp_pcb *pcb, struct pbuf *msg_pbu
 		return err;
 	}
 
-	if( conn->send_queue )
+	server.currently_handled_connection = conn;
+
+	assert( msg_pbuf->len == msg_pbuf->tot_len );
+	int16_t parse_err = parse_msg( (char *)msg_pbuf->payload, msg_pbuf->len );
+
+	char *load = (char *)mem_malloc( msg_pbuf->len );
+	if( !load )
+		return ERR_MEM;
+
+	memcpy( load, msg_pbuf->payload, msg_pbuf->len );
+	conn->response = load;
+	conn->response_len = msg_pbuf->len;
+
+	err_t w_err = start_sending( pcb, conn );
+
+	if( w_err == ERR_OK )
 	{
-		pbuf_chain( conn->send_queue, msg_pbuf );
-		return ERR_OK;
+		pbuf_free( msg_pbuf );
+		tcp_recved( pcb, conn->response_len );
 	}
 
-	conn->send_queue = msg_pbuf;
-
-	return start_sending( pcb, conn );
+	return w_err;
 }
 
 static void err_callback( void *arg, err_t err )
@@ -231,48 +247,39 @@ static void err_callback( void *arg, err_t err )
 	// TODO
 }
 
-static err_t start_sending( struct tcp_pcb *pcb, struct connection *conn )
+static err_t start_sending( struct tcp_pcb *pcb, connection_t *conn )
 {
-	while( conn->send_queue &&
-			conn->send_queue->len <= tcp_sndbuf( pcb ) )
+	if( conn->response && conn->response_len <= tcp_sndbuf( pcb ) )
 	{
-		struct pbuf *curr_buf = conn->send_queue;
-		uint16_t send_len = curr_buf->len;
-
 		err_t err = tcp_write( pcb,
-				curr_buf->payload,
-				send_len,
-				TCP_WRITE_FLAG_COPY );
+				conn->response,
+				conn->response_len,
+				0 );
 
 		if( err != ERR_OK )
 			return err;
-
-		struct pbuf *new_head =
-				( curr_buf->len == curr_buf->tot_len ) ?
-						NULL :
-						curr_buf->next;
-
-		pbuf_free( curr_buf );
-
-		conn->send_queue = new_head;
-
-		tcp_recved( pcb, send_len );
 	}
 	return ERR_OK;
 }
 
 static err_t poll_callback( void *arg, struct tcp_pcb *pcb )
 {
-	err_t err = start_sending( pcb, (struct connection *)arg );
+	err_t err = start_sending( pcb, (connection_t *)arg );
 	tcp_output( pcb );
 	return err;
 }
 
 static err_t sent_callback( void *arg, struct tcp_pcb *pcb, uint16_t len )
 {
-	// TODO
+	connection_t *conn = (connection_t *)arg;
+	mem_free( (void *)conn->response );
+	conn->response = NULL;
+	conn->response_len = 0;
 	return ERR_OK;
 }
 
-
+static err_t close_server( struct tcp_pcb *pcb, connection_t *conn )
+{
+	return ERR_OK;
+}
 

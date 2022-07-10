@@ -12,8 +12,8 @@
 #include "lwip/tcp.h"
 #include <stdint.h>
 
-#define MAX_CONNECTIONS 4
-#define MEM_ERROR UINT16_MAX
+#define ERR_PAGE_ID UINT16_MAX
+#define MAX_TOKEN_COUNT 256
 
 enum value_type
 {
@@ -47,6 +47,8 @@ typedef struct _widget_value
 struct page
 {
 	const char *page_description;
+	uint16_t page_desc_len;
+
 	w_val_t *page_content;
 	uint16_t widget_count;
 
@@ -54,12 +56,32 @@ struct page
 							 w_val_t *old_value );
 };
 
-struct connection
+enum response_type
+{
+	// response already sent and waiting
+	NO_RESP,
+
+	// sent as first message    ...version number ( for now ), static message
+	RESP_INIT,
+
+	// response to SET / POLL,  ...either 'values' or command to change pages, dynamic message( need to free after sent )
+	RESP_VAL,
+
+	// response to GET          ...page description, static message
+	RESP_PAGE,
+
+	// response to invalid JSON ...error message, static message
+	RESP_ERROR
+};
+
+typedef struct connection
 {
 	uint16_t page_id;
 	enum connection_state state;
-	struct pbuf *send_queue;
-};
+	const char *response;
+	uint16_t response_len;
+	enum response_type type;
+} connection_t;
 
 struct ctrl_server
 {
@@ -67,8 +89,7 @@ struct ctrl_server
 	uint16_t page_count;
 	uint8_t running;
 
-	struct connection connections[ MAX_CONNECTIONS ];
-	uint8_t currently_handled_connection;
+	connection_t *currently_handled_connection;
 	void (*idle_callback)();
 };
 
@@ -91,3 +112,4 @@ err_t mainloop( void );
 
 
 #endif /* CONTROLLER_SERVER_CONTROLLER_SERVER_H_ */
+
