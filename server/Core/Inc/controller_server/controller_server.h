@@ -44,7 +44,7 @@ typedef struct _widget_value
 } w_val_t;
 
 
-struct page
+typedef struct page
 {
 	const char *page_description;
 	uint16_t page_desc_len;
@@ -54,7 +54,7 @@ struct page
 
 	void (*update_callback)( uint16_t widget_id,
 							 w_val_t *old_value );
-};
+} page_t;
 
 enum response_type
 {
@@ -76,7 +76,7 @@ enum response_type
 
 typedef struct connection
 {
-	uint16_t page_id;
+	page_t *current_page;
 	enum connection_state state;
 	const char *response;
 	uint16_t response_len;
@@ -85,11 +85,12 @@ typedef struct connection
 
 struct ctrl_server
 {
-	struct page **pages;
+	page_t **pages;
 	uint16_t page_count;
 	uint8_t running;
 
 	connection_t *currently_handled_connection;
+	w_val_t old_value;
 	void (*idle_callback)();
 };
 

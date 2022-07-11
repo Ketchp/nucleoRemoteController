@@ -35,8 +35,7 @@ void server_init( void )
 
 static inline uint16_t push_page( struct page *new_page )
 {
-	struct page **new_mem =
-			(struct page **)mem_malloc( ( server.page_count + 1 ) * sizeof( *new_mem ) );
+	page_t **new_mem = (page_t **)mem_malloc( ( server.page_count + 1 ) * sizeof( *new_mem ) );
 	if( !new_mem )
 		return ERR_PAGE_ID;
 
@@ -56,21 +55,22 @@ uint16_t add_page(
 		uint16_t widget_count,
 		void (*update_callback)( uint16_t widget_id, w_val_t *old_value ) )
 {
-	struct page *new_page = (struct page *)mem_malloc( sizeof( *new_page ) );
+	page_t *new_page = (page_t *)mem_malloc( sizeof( *new_page ) );
 	if( !new_page )
 		return ERR_PAGE_ID;
 
 	uint16_t new_id = push_page( new_page );
 	if( new_id == ERR_PAGE_ID )
-		mem_free( new_page );
-	else
 	{
-		new_page->page_description = page_description;
-		new_page->page_desc_len = strlen( page_description );
-		new_page->page_content = page_content;
-		new_page->widget_count = widget_count;
-		new_page->update_callback = update_callback;
+		mem_free( new_page );
+		return ERR_PAGE_ID;
 	}
+
+	new_page->page_description = page_description;
+	new_page->page_desc_len = strlen( page_description );
+	new_page->page_content = page_content;
+	new_page->widget_count = widget_count;
+	new_page->update_callback = update_callback;
 	return new_id;
 }
 
@@ -87,7 +87,7 @@ void change_page( uint16_t page_id )
 
 	connection_t *conn = server.currently_handled_connection;
 
-	conn->page_id = page_id;
+	conn->current_page = server.pages[ page_id ];
 	conn->state |= C_PAGE_CHANGED;
 }
 
@@ -172,7 +172,7 @@ static err_t new_conn_callback( void *arg, struct tcp_pcb *new_pcb, err_t err )
 
 	tcp_setprio( new_pcb, TCP_PRIO_MIN );
 
-	conn->page_id = 0;
+	conn->current_page = server.pages[ 0 ];
 	conn->state = C_NEW;
 	conn->response = NULL;
 	conn->response_len = 0;
