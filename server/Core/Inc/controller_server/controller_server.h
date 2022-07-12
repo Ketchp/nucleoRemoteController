@@ -22,14 +22,6 @@ enum value_type
 	_string
 };
 
-enum connection_state
-{
-	C_UNUSED = 0,
-	C_NEW = 1,
-	C_PAGE_CHANGED = 2,
-	C_CLOSING = 4
-};
-
 
 typedef struct _widget_value
 {
@@ -56,41 +48,48 @@ typedef struct page
 							 w_val_t *old_value );
 } page_t;
 
-enum response_type
+
+typedef enum connection_flags
 {
-	// response already sent and waiting
-	NO_RESP,
+	// connection waits for message
+	C_IDLE = ( 1 ),
 
-	// sent as first message    ...version number ( for now ), static message
-	RESP_INIT,
+	// response has been queued for sending
+	C_SENT = ( 1 << 1 ),
 
-	// response to SET / POLL,  ...either 'values' or command to change pages, dynamic message( need to free after sent )
-	RESP_VAL,
+	/*
+	 * IDLE and SENT are NOT mutually exclusive
+	 * since message could be received but
+	 * response has not been queued for sending
+	 * due to memory shortage
+	 */
 
-	// response to GET          ...page description, static message
-	RESP_PAGE,
+	// response is allocated on heap and needs to be freed in sent callback
+	C_ALLOCATED = ( 1 << 2 ),
 
-	// response to invalid JSON ...error message, static message
-	RESP_ERROR
-};
+	// connection in process of closing
+	C_CLOSING = ( 1 << 3 )
+} connection_flag_t;
 
 typedef struct connection
 {
-	page_t *current_page;
-	enum connection_state state;
+	uint16_t current_page_id;
 	const char *response;
 	uint16_t response_len;
-	enum response_type type;
+	connection_flag_t flags;
 } connection_t;
 
 struct ctrl_server
 {
 	page_t **pages;
 	uint16_t page_count;
+	uint16_t initial_page;
 	uint8_t running;
 
 	connection_t *currently_handled_connection;
 	w_val_t old_value;
+	uint16_t widget_id;
+	uint16_t requested_page;
 	void (*idle_callback)();
 };
 
@@ -108,6 +107,8 @@ uint16_t add_page(
 void register_idle_callback( void (*idle_callback)() );
 
 void change_page( uint16_t page_id );
+
+void set_start_page( uint16_t page_id );
 
 err_t mainloop( void );
 

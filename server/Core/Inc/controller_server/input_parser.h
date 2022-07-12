@@ -12,13 +12,21 @@
 
 int16_t parse_msg( const char *msg, uint16_t msg_len );
 
+enum msg_type
+{
+	MSG_INVALID,
+	MSG_CMD_GET,
+	MSG_CMD_SET,
+	MSG_CMD_POLL
+};
+
 #endif /* INC_CONTROLLER_SERVER_INPUT_PARSER_H_ */
 
 /*
  * Example communication
  *
  * --server established--
- * -> { "VERSION": 1 }
+ * -> { "VERSION": 1, "PAGE": 0 }
  *
  * <- { "CMD": "GET", "VAL": { "PAGE": 0 } }
  * -> { "widgets": [ { "type": "button", "text": "Press Me!" } ] }
