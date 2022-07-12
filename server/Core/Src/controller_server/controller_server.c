@@ -60,6 +60,7 @@ push_page(
 
 	memcpy( new_mem, server.pages, server.page_count * sizeof( *new_mem ) );
 	new_mem[ server.page_count ] = new_page;
+	server.pages = new_mem;
 
 	return server.page_count++;
 }
@@ -217,7 +218,7 @@ new_conn_callback(
 	// TODO find way to get rid of hard-coded 20
 	memcpy( resp + 20, buff, sizeof( buff ) - 1 );
 
-	tcp_setprio( new_pcb, TCP_PRIO_MIN );
+	tcp_setprio( new_pcb, TCP_PRIO_MAX );
 
 	conn->current_page_id = server.initial_page;
 	conn->response = resp;
