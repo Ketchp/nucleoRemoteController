@@ -36,6 +36,7 @@ void server_init( void )
 {
 	if( server.pages )
 		mem_free( server.pages );
+	server.pages = NULL;
 	server.page_count = 0;
 	server.currently_handled_connection = NULL;
 	server.idle_callback = NULL;
@@ -60,6 +61,7 @@ push_page(
 
 	memcpy( new_mem, server.pages, server.page_count * sizeof( *new_mem ) );
 	new_mem[ server.page_count ] = new_page;
+	mem_free( server.pages );
 	server.pages = new_mem;
 
 	return server.page_count++;
