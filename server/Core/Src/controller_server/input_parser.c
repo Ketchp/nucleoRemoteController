@@ -49,7 +49,7 @@ parse_msg(
 	jsmn_parser parser;
 	jsmn_init( &parser );
 
-	uint16_t token_count = 4;
+	uint16_t token_count = 8;
 	jsmntok_t *tokens = (jsmntok_t *)mem_malloc( sizeof( *tokens ) * token_count );
 
 	int16_t parsed_tokens;
@@ -59,15 +59,17 @@ parse_msg(
 		if( parsed_tokens != JSMN_ERROR_NOMEM )
 			break;
 
-		token_count *= 2;
-		if( token_count > MAX_TOKEN_COUNT )
+		if( token_count * 2 > MAX_TOKEN_COUNT )
 			break;
 
-		jsmntok_t *new_t = realloc( tokens, sizeof( *tokens ) * token_count );
+		jsmntok_t *new_t = mem_malloc( sizeof( *tokens ) * token_count * 2 );
 		if( !new_t )
 			break;
 
+		memcpy( new_t, tokens, sizeof( *tokens ) * token_count );
 		tokens = new_t;
+
+		token_count *= 2;
 	}
 
 	if( !tokens )
