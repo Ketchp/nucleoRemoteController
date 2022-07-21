@@ -30,12 +30,11 @@ static void send_data( struct tcp_pcb *pcb, connection_t *conn );
 static void close_server( struct tcp_pcb *pcb, connection_t *conn );
 
 static char INIT_RESPONSE[] = "{\"VERSION\":1,\"PAGE\":     }"; // 5 blanks to hold up to UINT16_MAX page id's
-static char ERR_RESPONSE_NOT_JSON[] = "{\"ERR\":\"Not valid JSON.\"}"; // 5 blanks to hold up to UINT16_MAX page id's
+static char ERR_RESPONSE_NOT_JSON[] = "{\"ERR\":\"Not valid JSON.\"}";
+static char PAGE_RESPONSE[] = "{\"PAGE\":     }"; // 5 blanks to hold up to UINT16_MAX page id's
 
 void server_init( void )
 {
-	if( server.pages )
-		mem_free( server.pages );
 	server.pages = NULL;
 	server.page_count = 0;
 	server.currently_handled_connection = NULL;
@@ -90,7 +89,7 @@ add_page(
 	}
 
 	new_page->page_description = page_description;
-	new_page->page_desc_len = strlen( page_description );
+	new_page->page_desc_len = strlen( page_description ) - 1; // trailing '\0'
 	new_page->page_content = page_content;
 	new_page->widget_count = widget_count;
 	new_page->update_callback = update_callback;
@@ -116,11 +115,11 @@ void
 change_page(
 		uint16_t page_id )
 {
-#ifdef DEBUG
-	assert( "Can't call change_page outside of value change callback." == NULL );
-#endif
-
 	connection_t *conn = server.currently_handled_connection;
+
+#ifdef DEBUG
+	assert( conn != NULL ); // can't call change_page outside of value change callback
+#endif
 
 	conn->current_page_id = page_id;
 }
@@ -170,7 +169,11 @@ _mainloop_init( void )
 
 static void _mainloop_deinit( void )
 {
-	// TODO free pages
+	if( server.pages )
+		mem_free( server.pages );
+	server.pages = NULL;
+	server.page_count = 0;
+	// TODO
 }
 
 
@@ -202,7 +205,7 @@ new_conn_callback(
 	LWIP_UNUSED_ARG( arg );
 
 	connection_t *conn = (connection_t *)mem_malloc( sizeof( *conn ) );
-	char *resp = (char *)mem_malloc( sizeof( INIT_RESPONSE ) * sizeof( *resp ) );
+	char *resp = (char *)mem_malloc( sizeof( INIT_RESPONSE ) - 1 );
 
 	if( !conn || !resp )
 	{
@@ -212,7 +215,7 @@ new_conn_callback(
 		return ERR_ABRT;
 	}
 
-	strcpy( resp, INIT_RESPONSE );
+	memcpy( resp, INIT_RESPONSE, sizeof( INIT_RESPONSE ) - 1 );
 
 	char buff[ 6 ];
 	snprintf( buff, sizeof( buff ), "%5hu", server.initial_page );
@@ -220,12 +223,12 @@ new_conn_callback(
 	// TODO find way to get rid of hard-coded 20
 	memcpy( resp + 20, buff, sizeof( buff ) - 1 );
 
-	tcp_setprio( new_pcb, TCP_PRIO_MAX );
-
 	conn->current_page_id = server.initial_page;
 	conn->response = resp;
 	conn->response_len = sizeof( INIT_RESPONSE ) - 1; // -1 for trailing '\0'
 	conn->flags = C_ALLOCATED;
+
+	tcp_setprio( new_pcb, TCP_PRIO_MAX );
 
 	tcp_arg( new_pcb, conn );
 
@@ -321,21 +324,44 @@ recv_callback(
 	{
 		uint16_t page_id = conn->current_page_id;
 		page_t *current_page = server.pages[ page_id ];
-		if( current_page->update_callback )
-		{
-			current_page->update_callback( server.widget_id, &server.old_value );
-		}
 
-		if( server.old_value.val_type == _string )
-			mem_free( server.old_value.value.string_val );
+		if( !( conn->flags & C_CALLBACK_CALLED ) )
+		{
+			conn->flags |= C_CALLBACK_CALLED;
+
+			if( current_page->update_callback )
+			{
+				current_page->update_callback( server.widget_id, &server.old_value );
+			}
+
+			if( server.old_value.val_type == _string )
+				mem_free( server.old_value.value.string_val );
+		}
 
 		if( page_id != conn->current_page_id )
 		{
-			// TODO send { "PAGE": X }
+			char *resp = (char *)mem_malloc( sizeof( PAGE_RESPONSE ) - 1 );
+
+			if( !resp )
+				return ERR_MEM;
+
+			memcpy( resp, PAGE_RESPONSE, sizeof( PAGE_RESPONSE ) - 1 );
+
+			char buff[ 6 ];
+			snprintf( buff, sizeof( buff ), "%5hu", conn->current_page_id );
+
+			// TODO find way to get rid of hard-coded 8
+			memcpy( resp + 8, buff, sizeof( buff ) - 1 );
+
+			conn->response = resp;
+			conn->response_len = sizeof( PAGE_RESPONSE ) - 1; // -1 for trailing '\0'
+			conn->flags = C_ALLOCATED;
 		}
 
 		else
 			msg_type = MSG_CMD_POLL; // just pretend we are POLLing
+
+		conn->flags &= ~C_CALLBACK_CALLED;
 	}
 
 	if( msg_type == MSG_CMD_POLL )

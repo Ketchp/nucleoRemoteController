@@ -67,8 +67,12 @@ typedef enum connection_flags
 	// response is allocated on heap and needs to be freed in sent callback
 	C_ALLOCATED = ( 1 << 2 ),
 
+	// callback after SET command called,
+	// but allocating memory for PAGE response failed
+	C_CALLBACK_CALLED = ( 1 << 3 ),
+
 	// connection in process of closing
-	C_CLOSING = ( 1 << 3 )
+	C_CLOSING = ( 1 << 4 )
 } connection_flag_t;
 
 typedef struct connection
