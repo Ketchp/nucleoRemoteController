@@ -32,6 +32,7 @@ static void close_server( struct tcp_pcb *pcb, connection_t *conn );
 static char INIT_RESPONSE[] = "{\"VERSION\":1,\"PAGE\":     }"; // 5 blanks to hold up to UINT16_MAX page id's
 static char ERR_RESPONSE_NOT_JSON[] = "{\"ERR\":\"Not valid JSON.\"}";
 static char PAGE_RESPONSE[] = "{\"PAGE\":     }"; // 5 blanks to hold up to UINT16_MAX page id's
+static char POLL_RESPONSE[] = "{\"VAL\":\"BIN\"}"; // followed by raw binary data
 
 void server_init( void )
 {
@@ -355,18 +356,70 @@ recv_callback(
 
 			conn->response = resp;
 			conn->response_len = sizeof( PAGE_RESPONSE ) - 1; // -1 for trailing '\0'
-			conn->flags = C_ALLOCATED;
+			conn->flags |= C_ALLOCATED;
+			conn->flags &= ~C_CALLBACK_CALLED;
 		}
 
 		else
 			msg_type = MSG_CMD_POLL; // just pretend we are POLLing
 
-		conn->flags &= ~C_CALLBACK_CALLED;
 	}
 
 	if( msg_type == MSG_CMD_POLL )
 	{
 		// send values
+		page_t *page = server.pages[ conn->current_page_id ];
+
+		uint16_t widget_count = page->widget_count;
+		w_val_t *values = page->page_content;
+		uint16_t bin_length = 0;
+		for( uint16_t idx = 0; idx < widget_count; ++idx )
+		{
+			switch( values[ idx ].val_type )
+			{
+			case _int:
+				bin_length += sizeof( int32_t ) + 1;
+				break;
+			case _float:
+				bin_length += sizeof( float ) + 1;
+				break;
+			case _string:
+				bin_length += strlen( values[ idx ].value.string_val ) + 2; // trailing '\0' and enable
+			}
+		}
+
+		char *resp = (char *)mem_malloc( sizeof( POLL_RESPONSE ) + bin_length - 1 );
+
+		if( !resp )
+			return ERR_MEM;
+
+		uint16_t offset = sizeof( POLL_RESPONSE ) - 1;
+		memcpy( resp, POLL_RESPONSE, offset );
+
+		for( uint16_t idx = 0; idx < widget_count; ++idx )
+		{
+			switch( values[ idx ].val_type )
+			{
+			case _int:
+				memcpy( resp + offset, &values[ idx ].value.int_val, sizeof( int32_t ) );
+				offset += sizeof( int32_t );
+				break;
+			case _float:
+				memcpy( resp + offset, &values[ idx ].value.float_val, sizeof( float ) );
+				offset += sizeof( float );
+				break;
+			case _string:
+				strcpy( resp + offset, values[ idx ].value.string_val );
+				offset += strlen( values[ idx ].value.string_val ) + 1;
+			}
+			memcpy( resp + offset, &values[ idx ].enabled, 1 );
+			offset += 1;
+		}
+
+		conn->response = resp;
+		conn->response_len = sizeof( POLL_RESPONSE ) + bin_length - 1; // -1 for trailing '\0'
+		conn->flags |= C_ALLOCATED;
+		conn->flags &= ~C_CALLBACK_CALLED;
 	}
 
 	send_data( pcb, conn );
