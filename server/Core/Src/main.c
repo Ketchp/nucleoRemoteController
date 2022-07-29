@@ -51,7 +51,7 @@
 extern struct ctrl_server server;
 uint16_t page_id[3];
 
-const char *page1 = "{\"geometry\":{1,1},\"widgets\":"
+const char *page1 = "{\"size\":[1,1],\"widgets\":"
 					"[{\"type\":\"button\",\"text\":\"Press Me!\"}]}";
 
 w_val_t values1[] = { { .value.int_val = 0,
@@ -67,7 +67,7 @@ void page1_callback( uint16_t widget_id, w_val_t *_ )
 }
 
 
-const char *page2 = "{\"geometry\":{2,1},\"widgets\":"
+const char *page2 = "{\"size\":[2,1],\"widgets\":"
 					"[{\"type\":\"button\",\"text\":\"Go back!\"},"
 					"{\"type\":\"entry\",\"text\":\"Password\"}]}";
 
@@ -101,9 +101,9 @@ void page2_callback( uint16_t widget_id, w_val_t *_ )
 }
 
 
-const char *page3 = "{\"geometry\":{2,2},\"widgets\":"
+const char *page3 = "{\"size\":[2,2],\"widgets\":"
 					"[{\"type\":\"switch\",\"text\":\"On,Off\"},"
-					"{\"type\":\"switch_3\",\"text\":\"Down,,Up\"},"
+					"{\"type\":\"switch\",\"text\":\"Down,,Up\"},"
 					"{\"type\":\"label\"}]}";
 
 w_val_t values3[] = { { .value.int_val = 0,
