@@ -99,9 +99,33 @@ class ValueElement(LabelElement):
     pass
 
 
+class SwitchElement(BaseElement):
+    def __init__(self, root, element_id: int, event_queue: Queue, description: dict):
+        super().__init__(root, element_id, event_queue)
+        self.value = IntVar(value=0)
+        self.texts = description['text'].split(',')
+        self.buttons = []
+        for idx, text in enumerate(self.texts):
+            rd = Radiobutton(self.main_frame, text=text, variable=self.value,
+                             value=idx, command=self.change_callback,
+                             indicatoron=False, width=6)
+            rd.grid(column=idx+1, row=0)
+            self.buttons.append(rd)
+
+    def change_callback(self):
+        self.change_callback_queue.put([self.element_id, self.value.get()])
+
+    def update(self, value: bytes):
+        self.value.set(int.from_bytes(value[:4], byteorder='little'))
+        self.enabled = bool(value[4])
+
+        return value[5:]
+
+
 widget_type_str = {
     "button": ButtonElement,
     "label": LabelElement,
     "entry": EntryElement,
-    "value": ValueElement
+    "value": ValueElement,
+    "switch": SwitchElement
 }
