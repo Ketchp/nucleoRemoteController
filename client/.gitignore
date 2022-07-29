@@ -1,0 +1,7 @@
+
+# ignore files automaticaly saved by client
+assets/remotes.dat
+assets/saved_pages
+
+# python cache
+src/__pycache__
