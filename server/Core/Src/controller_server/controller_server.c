@@ -388,7 +388,10 @@ recv_callback(
 				bin_length += sizeof( float ) + 1;
 				break;
 			case _string:
-				bin_length += strlen( values[ idx ].value.string_val ) + 2; // trailing '\0' and enable
+				if( values[ idx ].value.string_val )
+					bin_length += strlen( values[ idx ].value.string_val ) + 2; // trailing '\0' and enable
+				else
+					bin_length += 2;
 			}
 		}
 
@@ -413,8 +416,13 @@ recv_callback(
 				offset += sizeof( float );
 				break;
 			case _string:
-				strcpy( resp + offset, values[ idx ].value.string_val );
-				offset += strlen( values[ idx ].value.string_val ) + 1;
+				if( values[ idx ].value.string_val )
+				{
+					strcpy( resp + offset, values[ idx ].value.string_val );
+					offset += strlen( values[ idx ].value.string_val ) + 1;
+				}
+				else
+					resp[ offset++ ] = '\0';
 			}
 			memcpy( resp + offset, &values[ idx ].enabled, 1 );
 			offset += 1;
