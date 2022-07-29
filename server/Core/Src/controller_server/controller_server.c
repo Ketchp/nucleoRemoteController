@@ -90,7 +90,7 @@ add_page(
 	}
 
 	new_page->page_description = page_description;
-	new_page->page_desc_len = strlen( page_description ) - 1; // trailing '\0'
+	new_page->page_desc_len = strlen( page_description );
 	new_page->page_content = page_content;
 	new_page->widget_count = widget_count;
 	new_page->update_callback = update_callback;
