@@ -206,12 +206,16 @@ new_conn_callback(
 	LWIP_UNUSED_ARG( arg );
 
 	connection_t *conn = (connection_t *)mem_malloc( sizeof( *conn ) );
-	char *resp = (char *)mem_malloc( sizeof( INIT_RESPONSE ) - 1 );
+	if( !conn )
+	{
+		tcp_abort( new_pcb );
+		return ERR_ABRT;
+	}
 
-	if( !conn || !resp )
+	char *resp = (char *)mem_malloc( sizeof( INIT_RESPONSE ) - 1 );
+	if( !resp )
 	{
 		mem_free( conn );
-		mem_free( resp );
 		tcp_abort( new_pcb );
 		return ERR_ABRT;
 	}
