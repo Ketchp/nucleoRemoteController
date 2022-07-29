@@ -526,12 +526,18 @@ static void close_server( struct tcp_pcb *pcb, connection_t *conn )
 
 static void send_data( struct tcp_pcb *pcb, connection_t *conn )
 {
-	if( conn->response && conn->response_len <= tcp_sndbuf( pcb ) )
+	if( conn->response && conn->response_len + 4 <= tcp_sndbuf( pcb ) )
 	{
-		err_t err = tcp_write( pcb, conn->response, conn->response_len, 0 );
+		uint8_t temp[4];
+		temp[0] = 0;
+		temp[1] = 0;
+		temp[2] = (uint8_t)(conn->response_len >> 8);
+		temp[3] = (uint8_t)(conn->response_len);
+		err_t err = tcp_write( pcb, temp, 4, TCP_WRITE_FLAG_COPY );
+		assert( err == ERR_OK );
+
+		err = tcp_write( pcb, conn->response, conn->response_len, 0 );
 		if( err == ERR_OK )
 			conn->flags |= C_SENT;
 	}
 }
-
-
