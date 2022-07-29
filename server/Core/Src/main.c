@@ -87,15 +87,11 @@ void page2_callback( uint16_t widget_id, w_val_t *_ )
 
 	if( widget_id == 1 && values2[ widget_id ].value.string_val )
 	{
-		char **str = &values2[ widget_id ].value.string_val;
-		size_t len = strlen( *str );
-		char *new_str;
-		if( ( new_str = (char *)mem_malloc( ( len + 8 ) * sizeof( *new_str ) ) ) )
+		if( !strcmp( values2[ widget_id ].value.string_val, "secret password" ) )
 		{
-			strncpy( new_str, "Hello ", 7 );
-			strcpy( new_str + 6, *str );
-			mem_free( *str );
-			*str = new_str;
+			mem_free( values2[ widget_id ].value.string_val );
+			values2[ widget_id ].value.string_val = NULL;
+			change_page( page_id[ 2 ] );
 		}
 	}
 }
