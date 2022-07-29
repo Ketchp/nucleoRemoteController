@@ -17,7 +17,7 @@ extern struct ctrl_server server;
 
 static const char ERR_RESPONSE_NOT_OBJECT[] = "{\"ERR\":\"Expected JSON object as message.\"}";
 static const char ERR_RESPONSE_CMD_NOT_STRING[] = "{\"ERR\":\"CMD attribute must be an string.\"}";
-static const char ERR_RESPONSE_UNKNOWN_CMD[] = "{ \"ERR\": \"Unknown CMD.\" }";
+static const char ERR_RESPONSE_UNKNOWN_CMD[] = "{\"ERR\":\"Unknown CMD.\"}";
 static const char ERR_RESPONSE_UNKNOWN_FIELD[] = "{\"ERR\":\"Unknown field, supported only CMD, VAL.\"}";
 static const char ERR_RESPONSE_VAL_NOT_OBJECT[] = "{\"ERR\":\"Expected JSON object as VAL attribute.\"}";
 static const char ERR_RESPONSE_VAL_NOT_ARRAY[] = "{\"ERR\":\"Expected JSON array as VAL attribute.\"}";
