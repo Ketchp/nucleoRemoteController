@@ -28,7 +28,7 @@ class ButtonElement(BaseElement):
         self.pressed = False
 
     def update(self, value: bytes):
-        self.pressed = bool(int.from_bytes(value[:4], byteorder='big'))
+        self.pressed = bool(int.from_bytes(value[:4], byteorder='little'))
         self.enabled = bool(value[4])
 
         self.button.state([
