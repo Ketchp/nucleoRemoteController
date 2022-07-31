@@ -13,7 +13,6 @@
 #include <stdio.h>
 
 struct ctrl_server server;
-extern struct netif gnetif;
 extern ip4_addr_t ipaddr;
 
 static err_t _mainloop_init( void );
@@ -182,8 +181,7 @@ static err_t _mainloop( void )
 {
 	while( server.running )
 	{
-		ethernetif_input( &gnetif );
-		sys_check_timeouts();
+		MX_LWIP_Process();
 
 		if( server.idle_callback )
 			server.idle_callback();
