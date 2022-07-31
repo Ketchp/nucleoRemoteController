@@ -165,12 +165,17 @@ class SwitchElement(BaseElement):
         super().__init__(root, element_id, event_queue)
         self.value = IntVar(value=0)
         self.texts = description['text'].split(',')
+        self.show_zero = description['show_zero'] if 'show_zero' in description else True
+        self.vertical = description['vertical'] if 'vertical' in description else False
         self.buttons = []
-        for idx, text in enumerate(self.texts):
+        for idx, text in enumerate(self.texts, start=0 if self.show_zero else 1):
             rd = Radiobutton(self.main_frame, text=text, variable=self.value,
                              value=idx, command=self.change_callback,
                              indicatoron=False, width=6)
-            rd.grid(column=idx+1, row=0)
+            if self.vertical:
+                rd.grid(column=0, row=len(self.buttons))
+            else:
+                rd.grid(row=0, column=len(self.buttons))
             self.buttons.append(rd)
 
     def change_callback(self):
