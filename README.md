@@ -74,9 +74,9 @@ Server response to such message will be for example:
 [{"type": "button", "text": "Press me!"},
  {"type": "switch", "text": "Down,Off,Up"},
  {"type": "entry", "text": "Enter password: "},
- {"type": "label",
- {"type": "value", "text":"Height", "unit":"m", "value_type": "float"
-}}]}
+ {"type": "label"},
+ {"type": "value", "text":"Height", "unit":"m", "value_type": "float"}
+]}
 ```
 
 This is description of page 0. Now client can display page.
