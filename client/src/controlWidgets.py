@@ -21,9 +21,11 @@ class BaseElement:
 class ButtonElement(BaseElement):
     def __init__(self, root, element_id: int, event_queue: Queue, description: dict):
         super().__init__(root, element_id, event_queue)
-        self.button_text: str = description['text']
-        self.button = ttk.Button(self.main_frame, text=self.button_text, command=self.press_callback)
-        self.button.bind('<ButtonRelease>', self.release_callback)
+        self.text: str = description['text']
+        self.text_disabled = description['text_disabled'] if 'text_disabled' in description else ""
+        self.button = ttk.Button(self.main_frame, text=self.text)
+        self.button.bind('<Button-1>', self.press_callback)
+        self.button.bind('<ButtonRelease-1>', self.release_callback)
         self.button.grid(column=0, row=0)
         self.pressed = False
 
@@ -37,7 +39,7 @@ class ButtonElement(BaseElement):
         ])
         return value[5:]
 
-    def press_callback(self):
+    def press_callback(self, _):
         self.change_callback_queue.put([self.element_id, 1])
         print("Pressed:", self.element_id)
 
