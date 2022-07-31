@@ -1,6 +1,7 @@
 from tkinter import *
 from tkinter import ttk
 from queue import Queue
+from struct import unpack
 
 
 class BaseElement:
@@ -90,8 +91,73 @@ class EntryElement(BaseElement):
         return value[string_len+2:]
 
 
-class ValueElement(LabelElement):
-    pass
+class ValueElement(BaseElement):
+    def __init__(self, root, element_id: int, event_queue: Queue, description: dict):
+        super().__init__(root, element_id, event_queue)
+        self.text = description['text']
+        self.unit = description['unit'] if 'unit' in description else ''
+        self.value_type = description['value_type'] if 'value_type' in description else 'string'
+        self.value = {'int32': 0, 'float': 0., 'string': ''}[self.value_type]
+        self.tk_value = StringVar(value=str(self.value))
+        self.special = description['special'] if 'special' in description else dict()
+        self.text_label = ttk.Label(self.main_frame, text=self.text)
+        self.value_frame = ttk.Frame(self.main_frame)
+        self.value_label = ttk.Label(self.value_frame, textvariable=self.tk_value)
+        self.unit_label = ttk.Label(self.value_frame, text=self.unit)
+
+        self.text_label.grid(column=0, row=0)
+        self.value_frame.grid(column=1, row=0)
+        self.value_label.grid(column=0, row=0)
+        self.unit_label.grid(column=1, row=0)
+
+    def update(self, value: bytes):
+        match self.value_type:
+            case 'int32':
+                self.value = int.from_bytes(value[:4], byteorder='little')
+                value = value[5:]
+            case 'float':
+                [self.value] = unpack('f', value[:4])
+                value = value[5:]
+            case 'string':
+                string_len = value.find(0)
+                self.value = value[:string_len]
+                value = value[string_len + 2:]
+        self._update()
+        return value
+
+    def _update(self):
+        if self.value_type == 'string':
+            self.tk_value.set(self.value)
+            return
+
+        for key, value in self.special.items():
+            if value == self.value:
+                self.set_special(key)
+                return
+            if type(value) is not list:
+                continue
+            start = value[0]
+            end = value[1]
+            if start != '-inf' and start > self.value:
+                continue
+            if end != 'inf' and self.value > end:
+                continue
+
+            self.set_special(key)
+            return
+
+        self.restore_special()
+
+    def set_special(self, special: str):
+        self.unit_label.grid_remove()
+        self.tk_value.set(special)
+
+    def restore_special(self):
+        self.unit_label.grid()
+        if self.value_type == 'float':
+            self.tk_value.set('{:.2f}'.format(self.value))
+        else:
+            self.tk_value.set(str(self.value))
 
 
 class SwitchElement(BaseElement):
