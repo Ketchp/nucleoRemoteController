@@ -54,8 +54,6 @@ ADC_HandleTypeDef hadc2;
 
 /* USER CODE BEGIN PV */
 
-extern struct ctrl_server server;
-
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
