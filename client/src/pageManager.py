@@ -5,6 +5,7 @@ import options
 from connection import Connection
 import pickle
 from queue import Queue
+from copy import deepcopy
 
 
 class PageManager:
@@ -12,6 +13,8 @@ class PageManager:
         self.main_frame = ttk.Frame(root)
         self.current_page = None
         self.widgets = []
+        self.position_assigner = None
+        self.current_id = None
         self.page_description_folder = path.join(options.assets_path, 'saved_pages')
         connection_desc = connection.remote_address[0].replace('.', '_') + '_' + str(connection.remote_address[1])
         self.connection_description_folder = path.join(self.page_description_folder, connection_desc)
@@ -35,26 +38,28 @@ class PageManager:
         self.widgets = []
 
         self.event_queue.queue.clear()
-
-        if 'size' not in page_description:
-            self.page_size = [len(page_description['widgets']), 1]
-        else:
-            self.page_size = page_description['size']
+        self.position_assigner = PositionAssigner(page_description)
+        self.current_id = 0
 
         self.parse_widgets(page_description['widgets'])
         return True
 
     def parse_widgets(self, widgets: list):
-        for idx, widget in enumerate(widgets):
-            self.parse_widget(idx, widget)
+        for widget in widgets:
+            self.parse_widget(widget)
 
-    def parse_widget(self, idx: int, widget: dict):
-        widget_class = controlWidgets.widget_type_str[widget['type']]
-        new_widget = widget_class(self.main_frame, idx, self.event_queue, widget)
+    def parse_widget(self, widget: dict):
+        widget_class = widget_type_str[widget['type']]
+        if widget_class is LabelElement:
+            new_widget = widget_class(self.main_frame, -1, self.event_queue, widget)
+        else:
+            new_widget = widget_class(self.main_frame, self.current_id, self.event_queue, widget)
+            self.current_id += 1
+
         self.widgets.append(new_widget)
-        page_width = self.page_size[1]
-        new_widget.grid(column=idx % page_width,
-                        row=idx // page_width)
+        if 'position' in widget:
+            self.position_assigner.set_position(widget['position'])
+        new_widget.grid(**self.position_assigner.get_position())
 
     def update(self, values: bytes):
         for widget in self.widgets:
@@ -85,3 +90,28 @@ class PageManager:
 
     def _file_path(self, page_id) -> str:
         return path.join(self.connection_description_folder, str(page_id) + '.dat')
+
+
+class PositionAssigner:
+    def __init__(self, description: dict):
+        if 'size' in description:
+            self.height = description['size'][0]
+            self.width = description['size'][1]
+        else:
+            self.height = len(description['widgets'])
+            self.width = 1
+        self.current_position = {'column': 0, 'row': 0}
+
+    def set_position(self, position: list):
+        self.current_position = {'column': position[1], 'row': position[0]}
+
+    def get_position(self):
+        temp = deepcopy(self.current_position)
+        self.increment()
+        return temp
+
+    def increment(self):
+        self.current_position['column'] += 1
+        if self.current_position['column'] == self.width:
+            self.current_position['row'] += 1
+            self.current_position['column'] = 0
