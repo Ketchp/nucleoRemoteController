@@ -63,7 +63,7 @@ class Connection:
             return
 
         try:
-            received = json.loads(msg.decode())
+            received = json.loads(msg.decode(errors='ignore'))
             self.receive_queue.put(received)
         except json.JSONDecodeError as err:
             err_msg = err.args[0]
@@ -75,7 +75,7 @@ class Connection:
 
             parse_len = int(m.group(1))
             try:
-                received = json.loads(msg.decode()[:parse_len])
+                received = json.loads(msg[:parse_len].decode())
                 self.receive_queue.put(received)
                 self.receive_queue.put(msg[parse_len:])
             except json.JSONDecodeError:
