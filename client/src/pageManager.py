@@ -1,5 +1,4 @@
-from tkinter import ttk
-import controlWidgets
+from controlWidgets import *
 import os
 from os import path
 import options
@@ -59,6 +58,8 @@ class PageManager:
 
     def update(self, values: bytes):
         for widget in self.widgets:
+            if type(widget) is LabelElement:
+                continue
             values = widget.update(values)
 
     def set_page_description(self, page_id: int, page_description: dict):

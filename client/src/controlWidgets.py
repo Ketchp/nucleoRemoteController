@@ -51,15 +51,8 @@ class ButtonElement(BaseElement):
 class LabelElement(BaseElement):
     def __init__(self, root, element_id: int, event_queue: Queue, description: dict):
         super().__init__(root, element_id, event_queue)
-        self.tk_text = StringVar()
-        self.label = ttk.Label(self.main_frame, textvariable=self.tk_text)
+        self.label = ttk.Label(self.main_frame, text=description['text'])
         self.label.grid(column=0, row=0)
-
-    def update(self, value: bytes):
-        string_len = value.find(0)
-        self.tk_text.set(value[:string_len].decode())
-        self.enabled = bool(value[string_len+1])
-        return value[string_len+2:]
 
 
 class EntryElement(BaseElement):
