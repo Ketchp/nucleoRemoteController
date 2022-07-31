@@ -107,7 +107,7 @@ void set_start_page( uint16_t page_id )
 
 void
 register_idle_callback(
-		void (*idle_callback)() )
+		void (*idle_callback)( void ) )
 {
 	server.idle_callback = idle_callback;
 }

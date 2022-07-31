@@ -27,6 +27,10 @@
 #include "controller_server.h"
 #include <assert.h>
 #include <string.h>
+#include "pages/page0.h"
+#include "pages/page1.h"
+#include "pages/page2.h"
+#include "pages/page3.h"
 
 /* USER CODE END Includes */
 
@@ -45,89 +49,45 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+ADC_HandleTypeDef hadc1;
+ADC_HandleTypeDef hadc2;
 
 /* USER CODE BEGIN PV */
 
 extern struct ctrl_server server;
-uint16_t page_id[3];
-
-const char *page1 = "{\"size\":[1,1],\"widgets\":"
-					"[{\"type\":\"button\",\"text\":\"Press Me!\"}]}";
-
-w_val_t values1[] = { { .value.int_val = 0,
-						.val_type = _int,
-						.enabled = 1 } };
-
-void page1_callback( uint16_t widget_id, w_val_t *_ )
-{
-	assert( widget_id == 0 );
-
-	if( values1[ 0 ].value.int_val )
-		change_page( page_id[ 1 ] );
-}
-
-
-const char *page2 = "{\"size\":[2,1],\"widgets\":"
-					"[{\"type\":\"button\",\"text\":\"Go back!\"},"
-					"{\"type\":\"entry\",\"text\":\"Password\"}]}";
-
-w_val_t values2[] = { { .value.int_val = 0,
-						.val_type = _int,
-						.enabled = 1 },
-					  { .value.string_val = NULL,
-						.val_type = _string,
-						.enabled = 1 } };
-
-void page2_callback( uint16_t widget_id, w_val_t *_ )
-{
-	assert( widget_id < 2 );
-
-	if( widget_id == 0 && values2[ widget_id ].value.int_val )
-		change_page( page_id[ 0 ] );
-
-	if( widget_id == 1 && values2[ widget_id ].value.string_val )
-	{
-		if( !strcmp( values2[ widget_id ].value.string_val, "secret password" ) )
-		{
-			mem_free( values2[ widget_id ].value.string_val );
-			values2[ widget_id ].value.string_val = NULL;
-			change_page( page_id[ 2 ] );
-		}
-	}
-}
-
-
-const char *page3 = "{\"size\":[2,2],\"widgets\":"
-					"[{\"type\":\"switch\",\"text\":\"On,Off\"},"
-					"{\"type\":\"switch\",\"text\":\"Down,,Up\"},"
-					"{\"type\":\"label\"}]}";
-
-w_val_t values3[] = { { .value.int_val = 0,
-						.val_type = _int,
-						.enabled = 1 },
-					  { .value.int_val = 1,
-						.val_type = _int,
-						.enabled = 1 },
-					  { .value.string_val = NULL,
-						.val_type = _string,
-						.enabled = 1 } };
-
-void page3_callback( uint16_t widget_id, w_val_t *_ )
-{
-	assert( widget_id < 2 );
-}
 
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
+static void MX_ADC1_Init(void);
+static void MX_ADC2_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+void update_values( void )
+{
+	values3[ 1 ].value.int_val = HAL_GPIO_ReadPin( user_button_GPIO_Port, user_button_Pin );
+
+	uint32_t value;
+
+	HAL_ADC_Start( &hadc1 );
+	HAL_ADC_PollForConversion( &hadc1, 10 );
+	value = HAL_ADC_GetValue( &hadc1 );
+	HAL_ADC_Stop( &hadc1 );
+	values3[ 2 ].value.float_val = (float)value / (float)( 1 << 12 ) * 3.3f;
+
+	HAL_ADC_Start( &hadc2 );
+	HAL_ADC_PollForConversion( &hadc2, 10 );
+	value = HAL_ADC_GetValue( &hadc2 );
+	HAL_ADC_Stop( &hadc2 );
+	values3[ 3 ].value.float_val = (float)value / (float)( 1 << 12 ) * 3.3f;
+}
 
 /* USER CODE END 0 */
 
@@ -166,15 +126,18 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_LWIP_Init();
+  MX_ADC1_Init();
+  MX_ADC2_Init();
   /* USER CODE BEGIN 2 */
 
   server_init();
 
-  register_idle_callback( NULL );
+  register_idle_callback( update_values );
 
-  page_id[0] = add_page( page1, values1, 1, page1_callback );
-  page_id[1] = add_page( page2, values2, 2, page2_callback );
-  page_id[2] = add_page( page3, values3, 3, page3_callback );
+  add_page( page0, values0, 4, page0_callback );
+  add_page( page1, values1, 4, page1_callback );
+  add_page( page2, values2, 4, page2_callback );
+  add_page( page3, values3, 4, page3_callback );
 
   mainloop();
 
@@ -203,10 +166,12 @@ void SystemClock_Config(void)
   /** Configure LSE Drive Capability
   */
   HAL_PWR_EnableBkUpAccess();
+
   /** Configure the main internal regulator output voltage
   */
   __HAL_RCC_PWR_CLK_ENABLE();
   __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
+
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
@@ -222,12 +187,14 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+
   /** Activate the Over-Drive mode
   */
   if (HAL_PWREx_EnableOverDrive() != HAL_OK)
   {
     Error_Handler();
   }
+
   /** Initializes the CPU, AHB and APB buses clocks
   */
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
@@ -244,12 +211,117 @@ void SystemClock_Config(void)
 }
 
 /**
+  * @brief ADC1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_ADC1_Init(void)
+{
+
+  /* USER CODE BEGIN ADC1_Init 0 */
+
+  /* USER CODE END ADC1_Init 0 */
+
+  ADC_ChannelConfTypeDef sConfig = {0};
+
+  /* USER CODE BEGIN ADC1_Init 1 */
+
+  /* USER CODE END ADC1_Init 1 */
+
+  /** Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
+  */
+  hadc1.Instance = ADC1;
+  hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
+  hadc1.Init.Resolution = ADC_RESOLUTION_12B;
+  hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE;
+  hadc1.Init.ContinuousConvMode = DISABLE;
+  hadc1.Init.DiscontinuousConvMode = DISABLE;
+  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
+  hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+  hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+  hadc1.Init.NbrOfConversion = 1;
+  hadc1.Init.DMAContinuousRequests = DISABLE;
+  hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+  if (HAL_ADC_Init(&hadc1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+  */
+  sConfig.Channel = ADC_CHANNEL_0;
+  sConfig.Rank = ADC_REGULAR_RANK_1;
+  sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN ADC1_Init 2 */
+
+  /* USER CODE END ADC1_Init 2 */
+
+}
+
+/**
+  * @brief ADC2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_ADC2_Init(void)
+{
+
+  /* USER CODE BEGIN ADC2_Init 0 */
+
+  /* USER CODE END ADC2_Init 0 */
+
+  ADC_ChannelConfTypeDef sConfig = {0};
+
+  /* USER CODE BEGIN ADC2_Init 1 */
+
+  /* USER CODE END ADC2_Init 1 */
+
+  /** Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
+  */
+  hadc2.Instance = ADC2;
+  hadc2.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
+  hadc2.Init.Resolution = ADC_RESOLUTION_12B;
+  hadc2.Init.ScanConvMode = ADC_SCAN_DISABLE;
+  hadc2.Init.ContinuousConvMode = DISABLE;
+  hadc2.Init.DiscontinuousConvMode = DISABLE;
+  hadc2.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
+  hadc2.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+  hadc2.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+  hadc2.Init.NbrOfConversion = 1;
+  hadc2.Init.DMAContinuousRequests = DISABLE;
+  hadc2.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+  if (HAL_ADC_Init(&hadc2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+  */
+  sConfig.Channel = ADC_CHANNEL_3;
+  sConfig.Rank = ADC_REGULAR_RANK_1;
+  sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
+  if (HAL_ADC_ConfigChannel(&hadc2, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN ADC2_Init 2 */
+
+  /* USER CODE END ADC2_Init 2 */
+
+}
+
+/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
   */
 static void MX_GPIO_Init(void)
 {
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
 
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOC_CLK_ENABLE();
@@ -257,6 +329,22 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOG_CLK_ENABLE();
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOB, led_green_Pin|led_red_Pin|led_blue_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin : user_button_Pin */
+  GPIO_InitStruct.Pin = user_button_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(user_button_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : led_green_Pin led_red_Pin led_blue_Pin */
+  GPIO_InitStruct.Pin = led_green_Pin|led_red_Pin|led_blue_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
 }
 
@@ -295,5 +383,3 @@ void assert_failed(uint8_t *file, uint32_t line)
   /* USER CODE END 6 */
 }
 #endif /* USE_FULL_ASSERT */
-
-/************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
