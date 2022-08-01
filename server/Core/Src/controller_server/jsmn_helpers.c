@@ -9,8 +9,11 @@
 #include "jsmn_helpers.h"
 
 /**
+ * Skip while JSON values in same depth.
+ * @param current Initial token.
+ * @param to_skip number of tokens to skip.
  * @note Function has no way of checking end of JSON and can return invalid pointer after last JSON value.
- * @return Next token in same depth.
+ * @return Token in same depth.
  */
 static jsmntok_t *skip_token( jsmntok_t *current, uint16_t to_skip )
 {

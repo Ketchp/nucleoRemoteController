@@ -10,8 +10,6 @@
 
 #include <stdint.h>
 
-int16_t parse_msg( const char *msg, uint16_t msg_len );
-
 enum msg_type
 {
 	MSG_INVALID,
@@ -19,6 +17,18 @@ enum msg_type
 	MSG_CMD_SET,
 	MSG_CMD_POLL
 };
+
+/**
+ * Parses message and stores results of parsing inside global ctrl-server structure.
+ * - MSG_INVALID must set response message.
+ * - MSG_CMD_GET must set requested page id.
+ * - MSG_CMD_SET must set new and old value and widget id.
+ * - MSG_CMD_POLL simply returns.
+ * @return - JSMN_ERROR_NOMEM on insufficient memory for parsing or if over MAX_TOKEN_COUNT would be needed for parsing.
+ * @return - enum msg_type for parsed message.
+ */
+int16_t parse_msg( const char *msg, uint16_t msg_len );
+
 
 #endif /* INC_CONTROLLER_SERVER_INPUT_PARSER_H_ */
 

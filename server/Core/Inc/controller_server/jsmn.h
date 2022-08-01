@@ -52,14 +52,26 @@ enum jsmnerr {
 
 /**
  * JSON token description.
- * type		type (object, array, string etc.)
- * start	start position in JSON data string
- * end		end position in JSON data string
  */
 typedef struct jsmntok {
+  /**
+   * object, array, string etc.
+   */
   jsmntype_t type;
+
+  /**
+   * Start position in JSON data string.
+   */
   int start;
+
+  /**
+   * End position in JSON data string.
+   */
   int end;
+
+  /**
+   * Child token count.
+   */
   int size;
 } jsmntok_t;
 
@@ -68,9 +80,19 @@ typedef struct jsmntok {
  * the string being parsed now and current position in that string.
  */
 typedef struct jsmn_parser {
-  unsigned int pos;     /* offset in the JSON string */
-  unsigned int toknext; /* next token to allocate */
-  int toksuper;         /* superior token node, e.g. parent object or array */
+  /**
+   * offset in the JSON string
+   */
+  unsigned int pos;
+  /**
+   * next token to allocate
+   */
+  unsigned int toknext;
+
+  /**
+   * superior token node, e.g. parent object or array
+   */
+  int toksuper;
 } jsmn_parser;
 
 /**
