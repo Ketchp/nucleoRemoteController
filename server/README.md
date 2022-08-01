@@ -93,3 +93,5 @@ to be able to decide which connection needs page change.
 This approach has some drawback, for example you can't change page as result of some internal event.
 
 When designing UI bear in mind that multiple pages can be loaded at a time.
+
+![](assets/multiple_connections.png "four pages on four clients")

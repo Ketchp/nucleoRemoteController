@@ -23,6 +23,8 @@ button, switch, entry, label, value).
 Each event(like button press or filled entry) is sent to nucleo board.
 User can also see device status thanks to value/label widgets.
 
+![](assets/page.png)
+
 ### Controller description from programmer perspective
 Controller library forces creating event driven programs.
 After initial setup and callback registrations, mainloop must be called.
@@ -33,6 +35,8 @@ This is place where behaviour of widgets should be implemented.
 Controller consists of one or more pages.
 Each page is described by JSON object, values associated with widgets and
 callback.
+
+![](assets/page_description.png)
 
 For more indepth documentation of library see server/README.md
 
