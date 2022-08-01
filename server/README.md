@@ -50,7 +50,7 @@ void set_start_page( uint16_t page_id );
 err_t mainloop( void );
 ```
 
-*For complete documentation of these functions generate documentation run `doxygen` in terminal.*
+*For complete documentation of these functions generate documentation run `doxygen` in terminal from this folder.*
 
 Intended use of library can be summarised to following steps:
 
